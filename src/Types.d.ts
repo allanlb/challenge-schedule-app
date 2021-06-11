@@ -21,3 +21,7 @@ interface Doctors {
     photoURL: string;
     type: string;
 }
+
+interface AppointmentGroup {
+    [index: string]: Appointments[];
+}

@@ -1,114 +1,80 @@
-import { FunctionComponent, useEffect, useState } from 'react';
-import { API_ROOT } from '../../constants';
+import { FunctionComponent, useEffect } from 'react';
+import { useDispatch } from "react-redux";
+import helpers from '../../helpers'
 import './Appointments.css';
 import NewAppointments from './AppointmentRow';
+import AppointmentStatus from './AppointmentStatus';
+import { cancelAppointment, confirmAppointment, fetchAppointments } from '../../redux/appointments/actions';
+import { fetchDoctors } from '../../redux/doctors/actions';
+import { fetchPatients } from '../../redux/patients/actions';
+import { useAppSelector } from '../../redux/storeConfig/hooks';
 
 export interface AppointmentsProps {
-   
 }
- 
+
 const Appointments: FunctionComponent<AppointmentsProps> = (props:AppointmentsProps) => {
+    const { list: appointments } = useAppSelector(state => state.appointments),
+        { list: doctors } = useAppSelector(state => state.doctors),
+        { list: patients } = useAppSelector(state => state.patients),
+        { message: error } = useAppSelector(state => state.error),
+        dispatch = useDispatch()
 
-    const [appointments, setAppointments] = useState<Appointments[]>([]);
-    const [doctors, setDoctors] = useState<Doctors[]>([]);
-    const [patients, setPatients] = useState<Patients[]>([]);
-    const [error, setError] = useState("");
+    const appointmentsByStatus = helpers.appointmentsByStatus(appointments);
 
-    const getAppointments = async () => {
-        try {
-            const res = await Promise.all([
-                fetch(`${API_ROOT}/appointments`),
-                fetch(`${API_ROOT}/doctors`),
-                fetch(`${API_ROOT}/patients`)
-            ]);
-            const data = await Promise.all(res.map(r => r.json()))
-            setAppointments(data[0].appointments);
-            setDoctors(data[1].doctors);
-            setPatients(data[2].patients)  
-            
-        } catch (error) {
-           setError(error)
-        }
-    }
     useEffect(() => {
-           getAppointments();  
-    }, []);
-    const cancelAppointment = async (id: string) =>{
-        const newAppointments : Appointments[] | any = appointments.filter(a => a.id !== id)
-        setAppointments(newAppointments)  
-        await fetch(`${API_ROOT}/appointments/${id}`, {
-            method: 'DELETE', 
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({reason : "Decided I don't like hospitals"})
-        });      
-        getAppointments();
+        dispatch(fetchAppointments())
+        dispatch(fetchDoctors())
+        dispatch(fetchPatients())
+    }, [dispatch]);
+
+    const cancelAppointments = (id: string) =>{
+        dispatch(cancelAppointment(id))
      };
-     
-    const confirmAppointment = async (id: string) =>{
-        await fetch(`${API_ROOT}/appointments/${id}/confirm`, {
-            method: 'POST', 
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({doctorID: id})
-        });
-        getAppointments();
+
+    const confirmAppointments = async (id: string) =>{
         if (id === "4"){
             const error = "There is no doctor available for this patient";
             alert(error)
+        } else {
+            dispatch(confirmAppointment(id))
         }
      };
- 
-    return ( 
+
+    const renderAppointments = (status: string) => {
+        if (appointmentsByStatus[status] === undefined) return null
+        return (
+            [
+                (<AppointmentStatus key={status} status={status} />),
+                appointmentsByStatus[status].map((appointment) => (
+                    <NewAppointments
+                        appointment={appointment}
+                        patients={patients}
+                        doctors={doctors}
+                        key={appointment.id}
+                        cancelAppointment={cancelAppointments}
+                        confirmAppointment={confirmAppointments}
+                    />
+                ))
+            ]
+        )
+    };
+
+    return (
         <div>
             <h4>Appointments</h4>
             {error && <div className="error">{error}</div>}
-            <table>           
+            <table>
                 <tbody>
-                    <tr>
-                        <td>
-                            <h5>NEW</h5>
-                        </td> 
-                    </tr>                                            
-                    {appointments.filter(appointment => appointment.status === "new").map((appointment) => (
-                        <NewAppointments appointment ={appointment} patients ={patients} doctors={doctors} key={appointment.id}
-                    cancelAppointment = {cancelAppointment} confirmAppointment={confirmAppointment} />
-                    ))}
-                     <tr>
-                        <td>
-                            <h5>CONFIRMED</h5>
-                        </td> 
-                    </tr>  
-                    {appointments.filter(appointment => appointment.status === "confirmed").map(appointment => (
-                        <NewAppointments appointment ={appointment} patients ={patients} doctors={doctors} key={appointment.id}
-                    cancelAppointment = {cancelAppointment} confirmAppointment={confirmAppointment} />
-                    ))}
-                     <tr>
-                        <td>
-                            <h5>COMPLETED</h5>
-                        </td> 
-                    </tr>  
-                     {appointments.filter(appointment => appointment.status === "completed").map(appointment => (
-                        <NewAppointments appointment ={appointment} patients ={patients} doctors={doctors} key={appointment.id}
-                    cancelAppointment = {cancelAppointment} confirmAppointment={confirmAppointment} />
-                    ))}
-                     <tr>
-                        <td>
-                            <h5>CANCELLED</h5>
-                        </td> 
-                    </tr>  
-                     {appointments.filter(appointment => appointment.status === "cancelled").map(appointment => (
-                        <NewAppointments appointment ={appointment} patients ={patients} doctors={doctors} key={appointment.id}
-                        cancelAppointment = {cancelAppointment} confirmAppointment={confirmAppointment} />
-                    ))}
+                    {renderAppointments('new')}
+                    {renderAppointments('confirmed')}
+                    {renderAppointments('completed')}
+                    {renderAppointments('cancelled')}
                 </tbody>
                 {appointments === [] && <div>There are no available appointments.</div>}
                 {doctors === [] && <div>There are no available doctors.</div>}
                 {patients === [] && <div>There are no available patients.</div>}
-            </table>         
+            </table>
         </div>
      );
-} 
+}
 export default Appointments;

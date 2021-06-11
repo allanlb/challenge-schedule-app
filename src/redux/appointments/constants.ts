@@ -1,0 +1,9 @@
+/*
+ *
+ * Appointments constants
+ *
+ */
+
+export const FETCH_APPOINTMENTS = 'FETCH_APPOINTMENTS'
+export const CANCEL_APPOINTMENT = 'CANCEL_APPOINTMENT'
+export const CONFIRM_APPOINTMENT = 'CONFIRM_APPOINTMENT'
